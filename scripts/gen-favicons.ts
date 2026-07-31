@@ -74,8 +74,6 @@ async function main() {
   // Next.js serves app/favicon.ico automatically at /favicon.ico for the
   // bare-path requests some crawlers and RSS readers still make.
   await writeFile('app/favicon.ico', ico);
-
-  console.log(`wrote ${PNGS.length + 3} files from ${SRC}`);
 }
 
 main();
