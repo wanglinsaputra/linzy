@@ -23,6 +23,17 @@ export function fingerprintOk(req: NextRequest): boolean {
 }
 
 /**
+ * Gate for API routes. Browser requests (Origin/Referer present) must come
+ * from the allow-listed site; non-browser clients (no Origin) must present
+ * the shared fingerprint. Either path grants access — never both required.
+ */
+export function authorized(req: NextRequest): boolean {
+  const origin = req.headers.get('origin') ?? req.headers.get('referer');
+  if (origin) return originAllowed(req);
+  return fingerprintOk(req);
+}
+
+/**
  * Rejects requests whose Origin/Referer is not the allow-listed site.
  * Missing header (curl, direct GET navigation) passes — browsers always send
  * Origin on fetch and Referer on navigation; rate limiting covers the rest.

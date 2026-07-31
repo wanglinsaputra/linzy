@@ -2,7 +2,7 @@ import { Readable } from 'node:stream';
 import { NextRequest } from 'next/server';
 import { getJob } from '@/lib/jobQueue';
 import { ffmpegStream } from '@/lib/ffmpegHelper';
-import { fingerprintOk, originAllowed, rateLimited } from '@/lib/security';
+import { authorized, rateLimited } from '@/lib/security';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -14,8 +14,8 @@ export const maxDuration = 300;
  * `?to=mp3` pipes the media through ffmpeg to strip the video track.
  */
 export async function GET(req: NextRequest) {
-  // Browser requests prove their origin; non-browser clients need the fingerprint.
-  if (!originAllowed(req) || !fingerprintOk(req)) {
+  // Browser requests pass via Origin; non-browser clients need the fingerprint.
+  if (!authorized(req)) {
     return new Response('Forbidden.', { status: 403 });
   }
   const rl = rateLimited(req, 20);

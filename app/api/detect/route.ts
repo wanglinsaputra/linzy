@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { detectPlatform } from '@/lib/detectPlatform';
-import { fingerprintOk, originAllowed, rateLimited } from '@/lib/security';
+import { authorized, rateLimited } from '@/lib/security';
 
 export const runtime = 'nodejs';
 
 const MAX_LEN = 2048;
 
 export async function POST(req: NextRequest) {
-  // Browser requests prove their origin; non-browser clients need the fingerprint.
-  if (!originAllowed(req) || !fingerprintOk(req)) {
+  // Browser requests pass via Origin; non-browser clients need the fingerprint.
+  if (!authorized(req)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
   const rl = rateLimited(req, 10);
