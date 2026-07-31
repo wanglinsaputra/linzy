@@ -26,7 +26,6 @@ export async function redisGet<T>(key: string): Promise<T | null> {
   }
 }
 
-/** SET key value EX ttl. */
 export async function redisSet(key: string, value: string, ttl: number): Promise<void> {
   if (!URL || !TOKEN) return;
   const res = await fetch(`${URL}/set/${key}?EX=${ttl}`, {
@@ -38,7 +37,6 @@ export async function redisSet(key: string, value: string, ttl: number): Promise
   if (!res.ok) throw new Error(`Redis SET failed (${res.status}).`);
 }
 
-/** SET key 1 EX ttl NX — true when we got the lock, false when someone else holds it. */
 export async function redisAcquireLock(key: string, ttl: number): Promise<boolean> {
   if (!URL || !TOKEN) return true;
   const res = await fetch(`${URL}/multi-exec`, {
