@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { InstallPrompt } from '@/components/InstallPrompt';
 import { RegisterSW } from '@/components/RegisterSW';
 import './globals.css';
 
@@ -98,6 +99,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="fixed inset-0 cyber-grid" aria-hidden="true" />
         <div className="fixed inset-0 scanlines" aria-hidden="true" />
         <RegisterSW />
+        <InstallPrompt />
         {children}
       </body>
     </html>
