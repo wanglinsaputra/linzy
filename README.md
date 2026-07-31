@@ -2,7 +2,7 @@
 
 Paste a link, download the media. Linzy detects the platform and media type (video / photo / audio) from a URL, then lists the formats you can save — no account, no app, no watermark.
 
-Stack: Next.js 15 (App Router) + TypeScript + Tailwind, PWA installable, in-memory job queue + status polling. UI is English, cyberpunk neon theme (design tokens in `desain/neon_protocol/DESIGN.md`).
+Stack: Next.js 16 (App Router) + TypeScript + Tailwind, PWA installable, in-memory job queue + status polling. UI is English, cyberpunk neon theme (design tokens in `desain/neon_protocol/DESIGN.md`).
 
 ## Supported platforms
 
