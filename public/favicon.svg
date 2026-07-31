@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Linzy">
+  <!-- Favicons render as small as 16px, so this is a single bold glyph with no
+       thin strokes: dark panel, neon-pink "L", cyan corner brackets. -->
+  <rect width="64" height="64" fill="#0a0a0a" />
+  <rect x="1" y="1" width="62" height="62" fill="none" stroke="#ffabf3" stroke-opacity="0.35" stroke-width="2" />
+
+  <!-- Corner brackets, the recurring motif in the UI panels. -->
+  <path
+    d="M6 18V6h12M46 6h12v12M58 46v12H46M18 58H6V46"
+    fill="none"
+    stroke="#00dddd"
+    stroke-width="3"
+    stroke-linecap="square"
+  />
+
+  <!-- Blocky L, drawn as a path so it never depends on a font being available. -->
+  <path d="M20 14h9v25h16v9H20z" fill="#ffabf3" />
+
+  <!-- Download tick: the arrowhead under the L's foot. -->
+  <path d="M45 14h8v10h5l-9 11-9-11h5z" fill="#00dddd" />
+</svg>
