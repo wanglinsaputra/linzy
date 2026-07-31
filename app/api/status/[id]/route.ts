@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getJob } from '@/lib/jobQueue';
-import { originAllowed, rateLimited } from '@/lib/security';
+import { fingerprintOk, originAllowed, rateLimited } from '@/lib/security';
 
 export const runtime = 'nodejs';
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!originAllowed(req)) {
+  // Browser requests prove their origin; non-browser clients need the fingerprint.
+  if (!originAllowed(req) || !fingerprintOk(req)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
   const rl = rateLimited(req, 60);

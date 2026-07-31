@@ -1,7 +1,26 @@
 import type { NextRequest } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 
 /** Origin allow-list from env. Set ALLOWED_ORIGIN in .env for deployments. */
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'https://linzy.web.id';
+/** Shared secret for non-browser clients. Set API_FINGERPRINT in .env. */
+const FINGERPRINT = process.env.API_FINGERPRINT;
+
+/**
+ * Browser requests pass via Origin/Referer check. Non-browser clients (curl,
+ * scripts, CLI) can't send a browser Origin, so they must present the shared
+ * secret as `x-api-fingerprint`. Missing secret = rejected.
+ */
+export function fingerprintOk(req: NextRequest): boolean {
+  if (!FINGERPRINT) return true; // env unset = feature off (dev convenience)
+  const key = req.headers.get('x-api-fingerprint');
+  if (!key) return false;
+  try {
+    return timingSafeEqual(Buffer.from(key), Buffer.from(FINGERPRINT));
+  } catch {
+    return false; // length mismatch
+  }
+}
 
 /**
  * Rejects requests whose Origin/Referer is not the allow-listed site.
