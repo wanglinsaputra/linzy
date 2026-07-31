@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   }
 
   const q = new URL(req.url).searchParams;
-  const job = getJob(q.get('job') ?? '');
+  const job = await getJob(q.get('job') ?? '');
   const fmt = job?.result?.formats.find((f) => f.id === q.get('format'));
   if (!job || !fmt) {
     return new Response('No such format for this job.', { status: 404 });

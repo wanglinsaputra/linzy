@@ -186,10 +186,10 @@ assert.throws(
 // The job map must live on globalThis, otherwise /api/extract and /api/status
 // get separate module instances in dev and every status poll 404s.
 // Planting into the existing map (not replacing it) because jobQueue captured
-// its reference at import time.
+// its reference at import time. Done status so no real extraction fires.
 const planted: Job = {
   id: 'planted-job',
-  status: 'processing',
+  status: 'done',
   url: 'https://www.tiktok.com/@a/video/1',
   platform: 'tiktok',
   createdAt: Date.now(),
@@ -197,6 +197,7 @@ const planted: Job = {
 const globalJobs = (globalThis as typeof globalThis & { __linzyJobs?: Map<string, Job> }).__linzyJobs;
 assert.ok(globalJobs, 'jobQueue must publish its map on globalThis');
 globalJobs.set(planted.id, planted);
-assert.equal(getJob('planted-job')?.platform, 'tiktok', 'getJob must read the globalThis-pinned map');
+const plantedBack = await getJob('planted-job');
+assert.equal(plantedBack?.platform, 'tiktok', 'getJob must read the globalThis-pinned map');
 
 console.log('selfcheck OK');

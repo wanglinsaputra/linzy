@@ -1,40 +1,77 @@
 import { randomUUID } from 'node:crypto';
 import type { Job, Platform } from './types';
 import { extract } from './extract';
+import { redisAcquireLock, redisDel, redisEnabled, redisGet, redisSet } from './redis';
 
-// ponytail: in-memory queue, single process, 1h TTL.
-// Pinned to globalThis because each route bundle gets its own module instance in
-// dev (and HMR resets module scope), so a plain module-level Map made
-// /api/status 404 on every job enqueued by /api/extract.
-// Ceiling: jobs still die on restart and don't cross serverless instances.
-// Upgrade path: swap this map for bullmq + Redis, same enqueue/get surface.
+// In-memory fallback so dev/selfcheck work without Upstash env vars. Pinned to
+// globalThis because each route bundle gets its own module instance in dev.
+// In production (with UPSTASH_REDIS_REST_URL/TOKEN set) jobs live in Redis so
+// they survive across serverless instances — the whole reason /api/status used
+// to 404 on Vercel (extract landed on one instance, polls hit another).
 const store = globalThis as typeof globalThis & { __linzyJobs?: Map<string, Job> };
-const jobs = (store.__linzyJobs ??= new Map<string, Job>());
-const TTL = 60 * 60 * 1000;
+const mem = (store.__linzyJobs ??= new Map<string, Job>());
+const TTL = 60 * 60; // seconds (Redis) — mem map uses the same 1h lifetime
 
-function sweep() {
-  const cutoff = Date.now() - TTL;
-  for (const [id, j] of jobs) if (j.createdAt < cutoff) jobs.delete(id);
-}
+const jobKey = (id: string) => `linzy:job:${id}`;
+const lockKey = (id: string) => `linzy:lock:${id}`;
+const LOCK_TTL = 120; // seconds; longest upstream extraction observed is ~25s
 
 export function enqueue(url: string, platform: Platform): Job {
-  sweep();
   const job: Job = { id: randomUUID(), status: 'processing', url, platform, createdAt: Date.now() };
-  jobs.set(job.id, job);
-
-  // Fire-and-forget: the request returns immediately, client polls /api/status.
-  void (async () => {
-    try {
-      job.result = await extract(url, platform);
-      job.status = 'done';
-    } catch (e) {
-      job.status = 'error';
-      job.error = (e as Error)?.message ?? 'Extraction failed.';
-      console.error(`[job ${job.id}] ${platform} error:`, e);
-    }
-  })();
-
+  if (redisEnabled) {
+    void redisSet(jobKey(job.id), JSON.stringify(job), TTL).catch(() => {});
+  } else {
+    mem.set(job.id, job);
+    sweep();
+  }
   return job;
 }
 
-export const getJob = (id: string) => jobs.get(id);
+/**
+ * Load a job, kicking off extraction on first poll (lazy). Extraction runs
+ * inside the status handler so it is never abandoned when a serverless
+ * instance is recycled; the Redis lock keeps concurrent polls from extracting
+ * twice. Fire-and-forget can't be trusted on serverless — this is the guard.
+ */
+export async function getJob(id: string): Promise<Job | null> {
+  const key = jobKey(id);
+  let job: Job | null = null;
+
+  if (redisEnabled) {
+    job = await redisGet<Job>(key).catch(() => null);
+    if (job?.status === 'processing') {
+      const mine = await redisAcquireLock(lockKey(id), LOCK_TTL).catch(() => true);
+      if (mine) {
+        try {
+          const result = await extract(job.url, job.platform);
+          job = { ...job, status: 'done', result };
+        } catch (e) {
+          job = { ...job, status: 'error', error: (e as Error)?.message ?? 'Extraction failed.' };
+        }
+        await redisSet(key, JSON.stringify(job), TTL).catch(() => {});
+        await redisDel(lockKey(id)).catch(() => {});
+      }
+    }
+    return job;
+  }
+
+  // Dev fallback: in-memory, fire-and-forget like before.
+  job = mem.get(id) ?? null;
+  if (job?.status === 'processing') {
+    void (async () => {
+      try {
+        job!.result = await extract(job!.url, job!.platform);
+        job!.status = 'done';
+      } catch (e) {
+        job!.status = 'error';
+        job!.error = (e as Error)?.message ?? 'Extraction failed.';
+      }
+    })();
+  }
+  return job;
+}
+
+function sweep() {
+  const cutoff = Date.now() - TTL * 1000;
+  for (const [id, j] of mem) if (j.createdAt < cutoff) mem.delete(id);
+}

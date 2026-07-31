@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!ID_RE.test(id)) {
     return NextResponse.json({ error: 'Invalid job id.' }, { status: 400 });
   }
-  const job = getJob(id);
+  const job = await getJob(id);
   if (!job) return NextResponse.json({ error: 'Job not found or already expired.' }, { status: 404 });
   return NextResponse.json({
     id: job.id,
