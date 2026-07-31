@@ -1,7 +1,36 @@
+import { createHash } from 'node:crypto';
 import type { ExtractResult, MediaFormat, MediaKind, Platform } from './types';
+import { redisEnabled, redisGet, redisSet } from './redis';
 
 const API = process.env.WAVY_API_BASE ?? 'https://wavy.netraux.eu.cc';
 const TIMEOUT = 25_000;
+
+// URL-keyed cache: every Linzy user shares this server's IP, so identical
+// links must not burn Wavy quota repeatedly. 30 min TTL — media links expire.
+const CACHE_TTL = 30 * 60; // seconds (Redis)
+const cacheStore = globalThis as typeof globalThis & {
+  __linzyCache?: Map<string, { at: number; v: ExtractResult }>;
+};
+const memCache = (cacheStore.__linzyCache ??= new Map());
+
+const cacheKey = (url: string) =>
+  `linzy:cache:${createHash('sha256').update(url).digest('hex').slice(0, 32)}`;
+
+async function cacheGet(url: string): Promise<ExtractResult | null> {
+  if (redisEnabled) return redisGet<ExtractResult>(cacheKey(url)).catch(() => null);
+  const hit = memCache.get(url);
+  return hit && Date.now() - hit.at < CACHE_TTL * 1000 ? hit.v : null;
+}
+
+async function cacheSet(url: string, v: ExtractResult): Promise<void> {
+  if (redisEnabled) {
+    void redisSet(cacheKey(url), JSON.stringify(v), CACHE_TTL).catch(() => {});
+  } else {
+    memCache.set(url, { at: Date.now(), v });
+    const cutoff = Date.now() - CACHE_TTL * 1000;
+    for (const [k, e] of memCache) if (e.at < cutoff) memCache.delete(k);
+  }
+}
 
 export class ExtractError extends Error {
   constructor(
@@ -201,6 +230,9 @@ const remainingQuota = (res: Response) =>
  * links expire) before this sees real traffic.
  */
 export async function extract(url: string, platform: Platform): Promise<ExtractResult> {
+  const cached = await cacheGet(url);
+  if (cached) return cached;
+
   let res: Response;
   try {
     res = await fetch(`${API}/api/download?url=${encodeURIComponent(url)}`, {
@@ -231,5 +263,6 @@ export async function extract(url: string, platform: Platform): Promise<ExtractR
   if (Number.isFinite(left) && left < 10) {
     result.notice = `Extraction quota nearly used up (${left} left). The next few requests may fail temporarily.`;
   }
+  await cacheSet(url, result);
   return result;
 }
