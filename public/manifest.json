@@ -1,0 +1,16 @@
+{
+  "name": "Linzy — Social Media Video & Photo Downloader",
+  "short_name": "Linzy",
+  "description": "Paste a link from TikTok, Instagram, X, Facebook, Threads, Pinterest, Spotify or CapCut and download the media without a watermark.",
+  "lang": "en",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#131313",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

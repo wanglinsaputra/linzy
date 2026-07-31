@@ -1,0 +1,28 @@
+node_modules
+.next
+out
+build
+.env
+.env.local
+.env.*.local
+secrets/
+*.log
+.DS_Store
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Generated favicon set (source of truth: app/icon.svg, run npm run favicons)
+public/favicon.ico
+public/favicon.svg
+public/favicon-16x16.png
+public/favicon-32x32.png
+public/favicon-48x48.png
+public/favicon-64x64.png
+public/apple-touch-icon.png
+app/favicon.ico
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db

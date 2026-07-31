@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #050505;
+}
+
+/* Global scanline texture — DESIGN.md "Layout & Spacing" */
+.scanlines {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(0, 0, 0, 0.2)
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.cyber-grid {
+  background-image: linear-gradient(rgba(0, 221, 221, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 221, 221, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.glitch-hover:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px 0px #00dddd;
+}
+
+.input-glow:focus-within {
+  box-shadow: 0 0 15px rgba(0, 221, 221, 0.3);
+}
+
+/* Level 1 panel */
+.glitch-panel {
+  background-color: #0f0f15;
+  border: 1px solid #222222;
+}
+
+.data-packet {
+  background-color: #0f0f15;
+  border: 1px solid #222222;
+}
+.data-packet:hover {
+  border-color: #ffabf3;
+  box-shadow: 0 0 4px rgba(255, 171, 243, 0.6);
+}
+
+.btn-primary {
+  background-color: #ffabf3;
+  color: #000;
+  border: none;
+}
+.btn-primary:hover {
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255, 171, 243, 0.8);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .text-display-lg {
+    font-size: 40px;
+  }
+  .text-headline-lg {
+    font-size: 30px;
+  }
+}
