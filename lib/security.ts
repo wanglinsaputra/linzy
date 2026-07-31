@@ -7,7 +7,7 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'https://linzy.web.id';
  * Rejects requests whose Origin/Referer is not the allow-listed site.
  * Missing header (curl, direct GET navigation) passes — browsers always send
  * Origin on fetch and Referer on navigation; rate limiting covers the rest.
- * Localhost is allowed outside production so `next dev` keeps working.
+ * Localhost is blocked in production so the API only accepts the real origin.
  */
 export function originAllowed(req: NextRequest): boolean {
   const origin = req.headers.get('origin') ?? req.headers.get('referer');
@@ -19,6 +19,7 @@ export function originAllowed(req: NextRequest): boolean {
     return false;
   }
   if (process.env.NODE_ENV !== 'production') {
+    // Dev only: your own dev server (localhost) may call the API.
     if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return true;
   }
   return u.origin === new URL(ALLOWED_ORIGIN).origin;
