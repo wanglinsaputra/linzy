@@ -13,6 +13,6 @@ export function ffmpegStream(inputUrl: string, format: 'mp3' | 'mp4'): NodeJS.Re
       : ['-i', inputUrl, '-c', 'copy', '-movflags', 'frag_keyframe+empty_moov', '-f', 'mp4', 'pipe:1'];
 
   const proc = spawn(process.env.FFMPEG_PATH ?? 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'ignore'] });
-  proc.on('error', () => {});
+  proc.on('error', (e) => console.error('[ffmpeg] failed to start:', e.message));
   return proc.stdout;
 }

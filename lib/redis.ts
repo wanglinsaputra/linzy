@@ -28,10 +28,13 @@ export async function redisGet<T>(key: string): Promise<T | null> {
 
 export async function redisSet(key: string, value: string, ttl: number): Promise<void> {
   if (!URL || !TOKEN) return;
-  const res = await fetch(`${URL}/set/${key}?EX=${ttl}`, {
+  const res = await fetch(URL, {
     method: 'POST',
-    headers: { authorization: `Bearer ${TOKEN}` },
-    body: value,
+    headers: {
+      authorization: `Bearer ${TOKEN}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(['SET', key, value, 'EX', ttl]),
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(`Redis SET failed (${res.status}).`);
@@ -39,22 +42,31 @@ export async function redisSet(key: string, value: string, ttl: number): Promise
 
 export async function redisAcquireLock(key: string, ttl: number): Promise<boolean> {
   if (!URL || !TOKEN) return true;
-  const res = await fetch(`${URL}/multi-exec`, {
+  const res = await fetch(URL, {
     method: 'POST',
-    headers: { authorization: `Bearer ${TOKEN}` },
-    body: JSON.stringify([['SET', key, '1', 'EX', ttl, 'NX']]),
+    headers: {
+      authorization: `Bearer ${TOKEN}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(['SET', key, '1', 'EX', ttl, 'NX']),
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(`Redis LOCK failed (${res.status}).`);
-  const body = (await res.json().catch(() => null)) as Array<{ result?: string; error?: string }> | null;
-  return Array.isArray(body) && body[0]?.result === 'OK';
+  const body = (await res.json().catch(() => null)) as { result?: string } | null;
+  return body?.result === 'OK';
 }
 
 export async function redisDel(key: string): Promise<void> {
   if (!URL || !TOKEN) return;
-  const res = await fetch(`${URL}/del/${key}`, {
-    headers: { authorization: `Bearer ${TOKEN}` },
+  const res = await fetch(URL, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${TOKEN}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(['DEL', key]),
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(`Redis DEL failed (${res.status}).`);
 }
+

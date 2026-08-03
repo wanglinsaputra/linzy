@@ -16,10 +16,10 @@ const jobKey = (id: string) => `linzy:job:${id}`;
 const lockKey = (id: string) => `linzy:lock:${id}`;
 const LOCK_TTL = 120; // seconds; longest upstream extraction observed is ~25s
 
-export function enqueue(url: string, platform: Platform): Job {
+export async function enqueue(url: string, platform: Platform): Promise<Job> {
   const job: Job = { id: randomUUID(), status: 'processing', url, platform, createdAt: Date.now() };
   if (redisEnabled) {
-    void redisSet(jobKey(job.id), JSON.stringify(job), TTL).catch(() => {});
+    await redisSet(jobKey(job.id), JSON.stringify(job), TTL).catch(() => {});
   } else {
     mem.set(job.id, job);
     sweep();

@@ -199,3 +199,5 @@ assert.ok(globalJobs, 'jobQueue must publish its map on globalThis');
 globalJobs.set(planted.id, planted);
 const plantedBack = await getJob('planted-job');
 assert.equal(plantedBack?.platform, 'tiktok', 'getJob must read the globalThis-pinned map');
+
+console.log('selfcheck OK');

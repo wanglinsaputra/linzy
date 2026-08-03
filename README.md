@@ -2,19 +2,17 @@
 
 Paste a link, download the media. Linzy detects the platform and media type (video / photo / audio) from a URL, then lists the formats you can save — no account, no app, no watermark.
 
-Stack: Next.js 16 (App Router) + TypeScript + Tailwind, PWA installable, in-memory job queue + status polling. UI is English, cyberpunk neon theme (design tokens in `desain/neon_protocol/DESIGN.md`).
+Stack: Next.js 16 (App Router) + TypeScript + Tailwind, PWA installable, Redis-backed job queue + status polling. UI is English, cyberpunk neon theme (design tokens in `desain/neon_protocol/DESIGN.md`).
 
 ## Supported platforms
 
 | Platform | Extraction path |
 | --- | --- |
-| TikTok, Twitter/X, Reddit, Bluesky | yt-dlp |
-| Pinterest | yt-dlp → og:meta |
-| Instagram, Facebook, Threads | yt-dlp → og:meta → 9xbuddy (fallback) |
-| Spotify | embed player scraper → official Spotify Web API |
-| CapCut | dedicated cheerio scraper (`__NEXT_DATA__`) |
+| TikTok, Twitter/X | Wavy API (`WAVY_API_BASE`) |
+| Instagram, Facebook, Threads | Wavy API |
+| Pinterest, Spotify, CapCut | Wavy API |
 
-Spotify is read through two paths: the `open.spotify.com/embed/<id>` scraper (no credentials) with the official API as fallback. Both only yield metadata + a 30s `preview_url`. Full tracks are DRM-protected and unavailable — the UI says so. The API credentials are optional, but without them there is no safety net if the embed markup changes.
+All extraction goes through the Wavy upstream API — no yt-dlp, no scrapers, no local binaries. Spotify only yields metadata + a 30s `preview_url` (full tracks are DRM-protected); the UI says so.
 
 ## Setup
 
@@ -25,43 +23,29 @@ npm test                      # self-check platform detection
 npm run dev                   # http://localhost:3000
 ```
 
-`youtube-dl-exec` needs Python at install time. If Python is missing:
-`YOUTUBE_DL_SKIP_PYTHON_CHECK=1 npm install` (the yt-dlp binary must still be on PATH).
+### Required env vars
 
-### Required binaries
+| Var | Required | Purpose |
+| --- | --- | --- |
+| `WAVY_API_BASE` | ✓ | Extraction upstream (defaults to the public instance) |
+| `ALLOWED_ORIGIN` | ✓ | Origin allow-list for the API; must match your public site URL |
+| `API_FINGERPRINT` | ✓ prod | Shared secret for non-browser clients; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | ✓ prod | Serverless job store; without these, jobs are in-memory and `/api/status` 404s across Vercel instances |
+| `FFMPEG_PATH` | — | Override if ffmpeg is not on PATH (only used by "convert to MP3") |
 
-`yt-dlp` and `ffmpeg` must be on PATH (or set `FFMPEG_PATH`).
+### API auth (origin + fingerprint)
+
+Browser requests pass via `Origin`/`Referer` — they must match `ALLOWED_ORIGIN`, or the API answers 403.
+Non-browser clients (curl, scripts) don't send a browser Origin, so they must present the shared secret as an `x-api-fingerprint` header:
 
 ```bash
-# Windows
-winget install yt-dlp.yt-dlp
-winget install Gyan.FFmpeg
-
-# Debian/Ubuntu/WSL
-sudo apt install ffmpeg
-pipx install yt-dlp
+curl -X POST https://linzy.web.id/api/extract \
+  -H "Content-Type: application/json" \
+  -H "x-api-fingerprint: <API_FINGERPRINT>" \
+  -d '{"url":"https://www.tiktok.com/@a/video/123"}'
 ```
 
-### Cookies (Instagram, Facebook, Threads)
-
-Without cookies, these three platforms almost always reply "login required".
-
-1. Log in with a **throwaway account** — Meta likes to freeze accounts used for scraping.
-2. Export cookies in Netscape format ("Get cookies.txt LOCALLY" extension).
-3. Save to `secrets/cookies.txt` (that folder is already in `.gitignore`).
-4. Set `YTDLP_COOKIES_FILE=./secrets/cookies.txt`.
-
-Cookies expire. If the UI says to log in again, re-export.
-
-### Spotify API key (optional — fallback if the embed scraper dies)
-
-1. Open https://developer.spotify.com/dashboard → **Create app**.
-2. Redirect URI can be anything (Linzy uses client-credentials, no user login).
-3. Copy Client ID & Client Secret into `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`.
-
-### Proxy (optional)
-
-`YTDLP_PROXY=http://user:pass@host:port` is forwarded to yt-dlp. This is the single spot to change if you later want to rotate proxies.
+Either path grants access — a request never needs both. If `API_FINGERPRINT` is unset the fingerprint check is off (dev only; set it in production!).
 
 ## Icons & favicons
 
@@ -75,37 +59,19 @@ Output: `favicon.ico` (16/32/48), `favicon-16x16.png`, `favicon-32x32.png`, `fav
 
 ## Deploy
 
-Frontend and extraction engine are best **split**. Vercel serverless has timeout limits and is awkward for binaries like yt-dlp/ffmpeg.
-
-**Frontend (Vercel)**
+**Vercel**
 ```bash
 vercel --prod
 ```
-Set `NEXT_PUBLIC_API_BASE` to the backend URL if the API routes are moved.
 
-**Backend / extraction engine (Railway, Render, Fly.io, or VPS)**
+Set these in the Vercel dashboard (Settings → Environment Variables): `ALLOWED_ORIGIN`, `API_FINGERPRINT`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `WAVY_API_BASE`.
 
-Needs a container that may install binaries:
-
-```dockerfile
-FROM node:24-slim
-RUN apt-get update && apt-get install -y ffmpeg python3 curl \
- && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
- && chmod +x /usr/local/bin/yt-dlp
-WORKDIR /app
-COPY . .
-RUN npm ci && npm run build
-CMD ["npm","start"]
-```
-
-Raise the `maxDuration` of routes if the hosting platform allows; heavy extraction can exceed 60s.
-
-Single instance for now — the job queue is in-memory, so horizontal scaling would send polls to instances that do not own the job. Switch to Redis before scaling out.
+The job queue lives in Upstash Redis so `/api/status` works across serverless instances (in-memory jobs would 404 once the extract instance is recycled).
 
 ## How it works
 
 ```
-POST /api/extract    → { id, status, platform }   (fire-and-forget, replies immediately)
+POST /api/extract    → { id, status, platform }   (replies immediately; extraction runs on first status poll)
 GET  /api/status/:id → { status, result | error } (UI polls every 1.5s)
 GET  /api/download?job=<id>&format=<id>          → streams the file
 GET  /api/download?job=<id>&format=<id>&to=mp3   → streams through ffmpeg, audio only
@@ -124,11 +90,11 @@ app/api/          detect · extract · status · download
 app/not-found.tsx custom 404 (no-index)
 scripts/gen-favicons.ts   rasterizes app/icon.svg (npm run favicons)
 lib/detectPlatform.ts     host allow-list → platform
-lib/ytdlpWrapper.ts       yt-dlp + backoff + cookies + proxy
+lib/security.ts           origin allow-list + fingerprint auth + rate limiting
+lib/redis.ts              Upstash Redis over REST (serverless job store)
 lib/ffmpegHelper.ts       transcode streaming (used by /api/download?to=mp3)
-lib/extract.ts            platform router → scraper
-lib/jobQueue.ts           in-memory queue, 1h TTL
-lib/scrapers/             one file per platform + layered.ts + fallback.ts
+lib/extract.ts            Wavy API caller → normalized result
+lib/jobQueue.ts           Redis-backed queue (1h TTL), in-memory fallback for dev
 components/               Chrome · ContactMenu · LoadingPanel · ResultPanel · RegisterSW
 public/manifest.json      PWA manifest
 public/sw.js              app-shell cache (skips /api/ and cross-origin)

@@ -32,6 +32,6 @@ export async function POST(req: NextRequest) {
   if (!hit) {
     return NextResponse.json({ error: 'Unsupported platform or invalid URL.' }, { status: 422 });
   }
-  const job = enqueue(hit.url, hit.platform);
+  const job = await enqueue(hit.url, hit.platform);
   return NextResponse.json({ id: job.id, status: job.status, platform: job.platform });
 }
