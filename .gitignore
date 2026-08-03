@@ -10,6 +10,8 @@ secrets/
 .DS_Store
 next-env.d.ts
 tsconfig.tsbuildinfo
+scripts/
+test/
 
 # Generated favicon set (source of truth: app/icon.svg, run npm run favicons)
 public/favicon.ico
